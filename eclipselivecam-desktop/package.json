@@ -11,6 +11,7 @@
     "build-mac": "electron-builder --mac"
   },
   "build": {
+    "publish": null,
     "appId": "com.eclipselivecam.app",
     "productName": "EclipseLiveCam",
     "copyright": "© 2026 EclipseLiveCam",
