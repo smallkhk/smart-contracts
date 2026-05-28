@@ -1,6 +1,11 @@
 name: Build EclipseLiveCam
 
 on:
+  push:
+    branches: [ main, master, claude/github-actions-windows-build-e3tfD ]
+    paths:
+      - 'eclipselivecam-desktop/**'
+      - '.github/workflows/build-windows.yml'
   workflow_dispatch:
 
 env:
