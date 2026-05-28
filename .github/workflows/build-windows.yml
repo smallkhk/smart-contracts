@@ -1,4 +1,4 @@
-name: Build EclipseLiveCam Windows App
+name: Build EclipseLiveCam
 
 on:
   workflow_dispatch:
@@ -6,11 +6,9 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
-
     defaults:
       run:
         working-directory: eclipselivecam-desktop
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,15 +21,77 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Windows exe
-        run: npm run build
+      - name: Build Windows (x64, ia32, arm64)
+        run: npm run build:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload installer
+      - name: Upload Windows installers
         uses: actions/upload-artifact@v4
         with:
-          name: EclipseLiveCam-Windows-Installer
+          name: EclipseLiveCam-Windows
           path: eclipselivecam-desktop/dist/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+  build-mac:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: eclipselivecam-desktop
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build macOS (x64 + Apple Silicon)
+        run: npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: EclipseLiveCam-macOS
+          path: eclipselivecam-desktop/dist/*.dmg
+          if-no-files-found: error
+          retention-days: 30
+
+  build-linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: eclipselivecam-desktop
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Linux (x64 + arm64)
+        run: npm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: EclipseLiveCam-Linux
+          path: |
+            eclipselivecam-desktop/dist/*.AppImage
+            eclipselivecam-desktop/dist/*.deb
           if-no-files-found: error
           retention-days: 30
