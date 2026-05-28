@@ -52,12 +52,6 @@ function createMain() {
     show: false,
     title: APP_NAME,
     icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#050810',
-      symbolColor: '#38bdf8',
-      height: 36,
-    },
     backgroundColor: '#050810',
     webPreferences: {
       contextIsolation: true,
@@ -74,8 +68,8 @@ function createMain() {
   // Load your live site
   mainWindow.loadURL(APP_URL);
 
-  // Show window once page starts loading (looks smooth after splash)
-  mainWindow.webContents.once('did-start-loading', () => {
+  // Show window once DOM is ready so there's no black flash
+  mainWindow.webContents.once('dom-ready', () => {
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.close();
       splashWindow = null;
