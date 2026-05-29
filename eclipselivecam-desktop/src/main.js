@@ -1,144 +1,113 @@
-const { app, BrowserWindow, session, shell, Menu } = require('electron');
+const { app, BrowserWindow, session, shell, Menu, ipcMain, nativeTheme } = require('electron');
 const path = require('path');
+const fs   = require('fs');
 
-const APP_URL  = 'https://eclipselivecam.com';
+const APP_URL  = 'https://eclipselivecam.com/studio.html';
 const APP_NAME = 'EclipseLiveCam';
+const VERSION  = app.getVersion();
 
 let mainWindow = null;
 let splashWindow = null;
 
-// ── PERMISSIONS ─────────────────────────────────────────────────────────────
-// Auto-grant camera, microphone, and display-capture so the live feature works
+// ── SETTINGS STORE ────────────────────────────────────────────────────────────
+const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+function loadSettings() {
+  try { return JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch(e) { return {}; }
+}
+function saveSettings(s) {
+  fs.writeFileSync(settingsPath, JSON.stringify(s, null, 2));
+}
+
+// ── IPC HANDLERS ─────────────────────────────────────────────────────────────
+ipcMain.handle('get-settings', () => loadSettings());
+ipcMain.handle('save-settings', (e, s) => { saveSettings(s); return true; });
+ipcMain.handle('get-version', () => VERSION);
+ipcMain.handle('get-app-url', () => APP_URL);
+ipcMain.handle('minimize',    () => mainWindow?.minimize());
+ipcMain.handle('maximize',    () => { mainWindow?.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(); });
+ipcMain.handle('close',       () => mainWindow?.close());
+ipcMain.handle('is-maximized',() => mainWindow?.isMaximized() ?? false);
+ipcMain.handle('reload-studio',()=> mainWindow?.webContents.send('reload-studio'));
+ipcMain.handle('clear-cache', async () => { await session.defaultSession.clearCache(); return true; });
+ipcMain.handle('open-external', (e, url) => shell.openExternal(url));
+ipcMain.handle('toggle-always-on-top', (e, val) => mainWindow?.setAlwaysOnTop(val));
+
+// ── PERMISSIONS ───────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
-  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    const allowed = ['media', 'camera', 'microphone', 'display-capture', 'notifications'];
-    callback(allowed.includes(permission));
+  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
+    cb(['media','camera','microphone','display-capture','notifications'].includes(permission));
   });
-  session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
-    const allowed = ['media', 'camera', 'microphone', 'display-capture', 'notifications'];
-    return allowed.includes(permission);
+  session.defaultSession.setPermissionCheckHandler((wc, permission) => {
+    return ['media','camera','microphone','display-capture','notifications'].includes(permission);
   });
+
+  // Apply saved settings
+  const s = loadSettings();
+  if (s.alwaysOnTop) app.once('browser-window-created', (e, win) => win.setAlwaysOnTop(true));
+
   createSplash();
 });
 
-// ── SPLASH WINDOW ────────────────────────────────────────────────────────────
+// ── SPLASH ────────────────────────────────────────────────────────────────────
 function createSplash() {
   splashWindow = new BrowserWindow({
-    width: 480,
-    height: 320,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    resizable: false,
-    center: true,
-    skipTaskbar: true,
+    width: 480, height: 320, frame: false, transparent: true,
+    alwaysOnTop: true, resizable: false, center: true, skipTaskbar: true,
     webPreferences: { contextIsolation: true },
   });
-
   splashWindow.loadFile(path.join(__dirname, 'splash.html'));
   splashWindow.once('ready-to-show', () => splashWindow.show());
-
-  // After 3 seconds, open main window
   setTimeout(createMain, 3000);
 }
 
-// ── MAIN WINDOW ──────────────────────────────────────────────────────────────
+// ── MAIN WINDOW ───────────────────────────────────────────────────────────────
 function createMain() {
+  const s = loadSettings();
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 900,
-    minHeight: 600,
+    width:     s.width    || 1300,
+    height:    s.height   || 840,
+    minWidth:  940,
+    minHeight: 620,
     show: false,
+    frame: false,          // we draw our own title bar
     title: APP_NAME,
     icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
-    backgroundColor: '#050810',
+    backgroundColor: '#0c0c0e',
+    alwaysOnTop: !!s.alwaysOnTop,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: true,
-      // Allow camera/mic in renderer
-      allowRunningInsecureContent: false,
+      preload: path.join(__dirname, 'preload.js'),
+      webviewTag: true,
     },
   });
 
-  // Remove default menu bar (keeps it clean like a real app)
-  Menu.setApplicationMenu(buildMenu());
-
-  // Load your live site
-  mainWindow.loadURL(APP_URL);
-
-  // Show window once DOM is ready so there's no black flash
-  mainWindow.webContents.once('dom-ready', () => {
-    if (splashWindow && !splashWindow.isDestroyed()) {
-      splashWindow.close();
-      splashWindow = null;
-    }
-    mainWindow.show();
+  // Save window size on resize
+  mainWindow.on('resized', () => {
+    const [w, h] = mainWindow.getSize();
+    const cs = loadSettings(); cs.width = w; cs.height = h; saveSettings(cs);
   });
 
-  // Fallback: show after 8 seconds even if loading is slow
+  mainWindow.loadFile(path.join(__dirname, 'app.html'));
+
+  mainWindow.webContents.once('did-finish-load', () => {
+    if (splashWindow && !splashWindow.isDestroyed()) { splashWindow.close(); splashWindow = null; }
+    mainWindow.show();
+    if (s.startMaximized) mainWindow.maximize();
+  });
   setTimeout(() => {
     if (mainWindow && !mainWindow.isVisible()) {
-      if (splashWindow && !splashWindow.isDestroyed()) {
-        splashWindow.close();
-        splashWindow = null;
-      }
+      if (splashWindow && !splashWindow.isDestroyed()) { splashWindow.close(); splashWindow = null; }
       mainWindow.show();
     }
-  }, 8000);
+  }, 9000);
 
-  // Open external links in system browser, not inside the app
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (!url.startsWith(APP_URL)) {
-      shell.openExternal(url);
-      return { action: 'deny' };
-    }
-    return { action: 'allow' };
-  });
-
+  mainWindow.on('maximize',   () => mainWindow.webContents.send('maximized', true));
+  mainWindow.on('unmaximize', () => mainWindow.webContents.send('maximized', false));
   mainWindow.on('closed', () => { mainWindow = null; });
+
+  Menu.setApplicationMenu(null); // no menu bar
 }
 
-// ── MENU ─────────────────────────────────────────────────────────────────────
-function buildMenu() {
-  return Menu.buildFromTemplate([
-    {
-      label: APP_NAME,
-      submenu: [
-        { label: 'About EclipseLiveCam', click: () => shell.openExternal(APP_URL) },
-        { type: 'separator' },
-        { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
-      ],
-    },
-    {
-      label: 'View',
-      submenu: [
-        { label: 'Reload', accelerator: 'CmdOrCtrl+R', click: () => mainWindow?.reload() },
-        { label: 'Force Reload', accelerator: 'CmdOrCtrl+Shift+R', click: () => mainWindow?.webContents.reloadIgnoringCache() },
-        { type: 'separator' },
-        { label: 'Zoom In',  accelerator: 'CmdOrCtrl+Plus',  click: () => { const z = mainWindow?.webContents.getZoomFactor(); mainWindow?.webContents.setZoomFactor(Math.min(z + 0.1, 3)); } },
-        { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-',     click: () => { const z = mainWindow?.webContents.getZoomFactor(); mainWindow?.webContents.setZoomFactor(Math.max(z - 0.1, 0.5)); } },
-        { label: 'Reset Zoom', accelerator: 'CmdOrCtrl+0',  click: () => mainWindow?.webContents.setZoomFactor(1) },
-        { type: 'separator' },
-        { label: 'Toggle Fullscreen', accelerator: 'F11', click: () => mainWindow?.setFullScreen(!mainWindow.isFullScreen()) },
-      ],
-    },
-    {
-      label: 'Window',
-      submenu: [
-        { label: 'Minimize', accelerator: 'CmdOrCtrl+M', role: 'minimize' },
-        { label: 'Close',    accelerator: 'CmdOrCtrl+W', role: 'close' },
-      ],
-    },
-  ]);
-}
-
-// ── APP LIFECYCLE ─────────────────────────────────────────────────────────────
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
-
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createMain();
-});
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createMain(); });
