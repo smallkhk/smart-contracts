@@ -34,13 +34,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Windows installers
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: EclipseLiveCam-Windows
           path: eclipselivecam-desktop/dist/*.exe
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
 
   build-mac:
     runs-on: macos-latest
@@ -64,13 +64,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload macOS installer
+      - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: EclipseLiveCam-macOS
           path: eclipselivecam-desktop/dist/*.dmg
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
 
   build-linux:
     runs-on: ubuntu-latest
@@ -94,7 +94,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Linux packages
+      - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: EclipseLiveCam-Linux
@@ -102,4 +102,36 @@ jobs:
             eclipselivecam-desktop/dist/*.AppImage
             eclipselivecam-desktop/dist/*.deb
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
+
+  release:
+    needs: [ build-windows, build-mac, build-linux ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-files
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: EclipseLiveCam — Latest Build
+          body: |
+            ## Download EclipseLiveCam
+
+            | Platform | File |
+            |----------|------|
+            | Windows (64-bit) | `EclipseLiveCam Setup *-x64.exe` |
+            | Windows (32-bit) | `EclipseLiveCam Setup *-ia32.exe` |
+            | Windows (ARM)    | `EclipseLiveCam Setup *-arm64.exe` |
+            | macOS            | `.dmg` files |
+            | Linux            | `.AppImage` / `.deb` files |
+          prerelease: false
+          make_latest: true
+          files: release-files/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
