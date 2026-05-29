@@ -69,7 +69,6 @@ function createMain() {
     minWidth:  940,
     minHeight: 620,
     show: false,
-    frame: false,          // we draw our own title bar
     title: APP_NAME,
     icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
     backgroundColor: '#0c0c0e',
@@ -77,8 +76,6 @@ function createMain() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      preload: path.join(__dirname, 'preload.js'),
-      webviewTag: true,
     },
   });
 
@@ -88,9 +85,10 @@ function createMain() {
     const cs = loadSettings(); cs.width = w; cs.height = h; saveSettings(cs);
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'app.html'));
+  // Load studio directly — no webview, no middleman
+  mainWindow.loadURL(APP_URL);
 
-  mainWindow.webContents.once('did-finish-load', () => {
+  mainWindow.webContents.once('dom-ready', () => {
     if (splashWindow && !splashWindow.isDestroyed()) { splashWindow.close(); splashWindow = null; }
     mainWindow.show();
     if (s.startMaximized) mainWindow.maximize();
@@ -102,11 +100,17 @@ function createMain() {
     }
   }, 9000);
 
-  mainWindow.on('maximize',   () => mainWindow.webContents.send('maximized', true));
-  mainWindow.on('unmaximize', () => mainWindow.webContents.send('maximized', false));
-  mainWindow.on('closed', () => { mainWindow = null; });
+  // Open external links in browser, keep internal navigation in-app
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (!url.startsWith('https://eclipselivecam.com')) {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    return { action: 'allow' };
+  });
 
-  Menu.setApplicationMenu(null); // no menu bar
+  mainWindow.on('closed', () => { mainWindow = null; });
+  Menu.setApplicationMenu(null);
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
