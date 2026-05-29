@@ -63,8 +63,17 @@ html,body{height:100%;background:#0c0c0e;color:#e8e8f0;font-family:'Segoe UI',sy
 .content{flex:1;display:flex;flex-direction:column;overflow:hidden}
 
 /* ── WEBVIEW ── */
+.webview-wrap{flex:1;position:relative;display:flex;overflow:hidden}
 webview{flex:1;border:none;display:block}
 webview[hidden]{display:none}
+.loading-overlay{position:absolute;inset:0;background:#0c0c0e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;z-index:10;transition:opacity .3s}
+.loading-overlay.hide{opacity:0;pointer-events:none}
+.spinner{width:38px;height:38px;border:3px solid rgba(124,58,237,.25);border-top-color:#7c3aed;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:.82rem;color:rgba(232,232,240,.35)}
+.error-box{display:none;flex-direction:column;align-items:center;gap:.8rem;text-align:center}
+.error-box.show{display:flex}
+.retry-btn{padding:.45rem 1.2rem;border-radius:8px;border:1px solid rgba(124,58,237,.4);background:rgba(124,58,237,.15);color:#a78bfa;font-family:'Segoe UI',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer}
 
 /* ── INNER PANELS ── */
 .inner-panel{flex:1;overflow-y:auto;display:none;padding:2rem;background:#0c0c0e}
@@ -175,9 +184,19 @@ webview[hidden]{display:none}
   <div class="content">
 
     <!-- STUDIO (webview) -->
-    <webview id="studioView" src="" allowpopups
-      webpreferences="contextIsolation=true"
-      style="flex:1;border:none"></webview>
+    <div class="webview-wrap" id="studioWrap">
+      <webview id="studioView" src="" allowpopups
+        webpreferences="contextIsolation=true"
+        style="flex:1;border:none"></webview>
+      <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loadingText">Loading Studio…</div>
+        <div class="error-box" id="errorBox">
+          <div style="font-size:.85rem;color:rgba(232,232,240,.5)">Could not load studio</div>
+          <button class="retry-btn" onclick="retryLoad()">↺ Retry</button>
+        </div>
+      </div>
+    </div>
 
     <!-- SETTINGS PANEL -->
     <div class="inner-panel" id="panel-settings">
@@ -323,7 +342,13 @@ async function init() {
   const wv = document.getElementById('studioView');
   wv.src = appUrl;
   wv.addEventListener('did-finish-load', () => {
+    document.getElementById('loadingOverlay').classList.add('hide');
     if (S.zoom && S.zoom !== 100) wv.setZoomFactor(S.zoom / 100);
+  });
+  wv.addEventListener('did-fail-load', (e) => {
+    if (e.errorCode === -3) return; // aborted (navigation, not a real error)
+    document.getElementById('loadingText').style.display = 'none';
+    document.getElementById('errorBox').classList.add('show');
   });
 
   // Listen for maximize changes
@@ -340,9 +365,8 @@ function showTab(tab) {
   // sidebar buttons
   document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('on'));
   document.getElementById('btn-'+tab).classList.add('on');
-  // webview
-  const wv = document.getElementById('studioView');
-  wv.style.display = tab === 'studio' ? 'flex' : 'none';
+  // webview wrapper
+  document.getElementById('studioWrap').style.display = tab === 'studio' ? 'flex' : 'none';
   // panels
   document.querySelectorAll('.inner-panel').forEach(p => p.classList.remove('show'));
   if (tab !== 'studio') document.getElementById('panel-'+tab).classList.add('show');
@@ -390,9 +414,18 @@ async function clearCache() {
 }
 
 function reloadStudio() {
-  document.getElementById('studioView').reload();
+  retryLoad();
   showTab('studio');
   showToast('↺ Studio reloaded');
+}
+
+function retryLoad() {
+  const wv = document.getElementById('studioView');
+  const ol = document.getElementById('loadingOverlay');
+  document.getElementById('loadingText').style.display = '';
+  document.getElementById('errorBox').classList.remove('show');
+  ol.classList.remove('hide');
+  wv.src = appUrl;
 }
 
 function openInBrowser() {
