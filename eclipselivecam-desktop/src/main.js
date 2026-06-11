@@ -5,7 +5,7 @@ const fs   = require('fs');
 const APP_URL      = 'https://eclipselivecam.com/studio.html';
 const APP_NAME     = 'EclipseLiveCam';
 const VERSION      = app.getVersion();
-const LICENSE_API  = 'http://54.241.57.251:3000';
+const LICENSE_API  = 'http://54.241.57.251:4000';
 
 let mainWindow = null;
 let splashWindow = null;

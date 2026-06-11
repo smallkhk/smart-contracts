@@ -4,7 +4,7 @@ const fs      = require('fs');
 const path    = require('path');
 
 const app           = express();
-const PORT          = process.env.PORT || 3000;
+const PORT          = process.env.PORT || 4000;
 const ADMIN_PASS    = process.env.ADMIN_PASSWORD || 'changeme123'; // change this!
 const KEYS_FILE     = path.join(__dirname, 'keys.json');
 
