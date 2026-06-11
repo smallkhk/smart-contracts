@@ -30,16 +30,33 @@ ipcMain.handle('is-maximized',() => mainWindow?.isMaximized() ?? false);
 ipcMain.handle('reload-studio',()=> mainWindow?.webContents.send('reload-studio'));
 ipcMain.handle('clear-cache', async () => { await session.defaultSession.clearCache(); return true; });
 ipcMain.handle('open-external', (e, url) => shell.openExternal(url));
+ipcMain.handle('get-cameras', async () => {
+  // Enumerate media devices from the webview's session
+  try {
+    const sources = await mainWindow?.webContents.executeJavaScript(
+      'navigator.mediaDevices.enumerateDevices().then(d=>d.filter(x=>x.kind==="videoinput").map(x=>({deviceId:x.deviceId,label:x.label})))'
+    );
+    return sources || [];
+  } catch(e) { return []; }
+});
 ipcMain.handle('toggle-always-on-top', (e, val) => mainWindow?.setAlwaysOnTop(val));
 
 // ── PERMISSIONS ───────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
-  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
-    cb(['media','camera','microphone','display-capture','notifications'].includes(permission));
-  });
-  session.defaultSession.setPermissionCheckHandler((wc, permission) => {
-    return ['media','camera','microphone','display-capture','notifications'].includes(permission);
-  });
+  const ALLOWED = ['media','camera','microphone','display-capture','notifications','desktopCapture'];
+
+  // Grant on default session
+  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => cb(ALLOWED.includes(permission)));
+  session.defaultSession.setPermissionCheckHandler((wc, permission) => ALLOWED.includes(permission));
+
+  // Also grant on the webview partition used by app.html
+  const webviewSession = session.fromPartition('persist:eclipse');
+  webviewSession.setPermissionRequestHandler((wc, permission, cb) => cb(ALLOWED.includes(permission)));
+  webviewSession.setPermissionCheckHandler((wc, permission) => ALLOWED.includes(permission));
+
+  // Grant device access for camera enumeration
+  webviewSession.setDevicePermissionHandler(() => true);
+  session.defaultSession.setDevicePermissionHandler(() => true);
 
   // Apply saved settings
   const s = loadSettings();
@@ -69,6 +86,7 @@ function createMain() {
     minWidth:  940,
     minHeight: 620,
     show: false,
+    frame: false,          // we draw our own title bar
     title: APP_NAME,
     icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
     backgroundColor: '#0c0c0e',
@@ -76,6 +94,10 @@ function createMain() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.js'),
+      webviewTag: true,
+      webSecurity: false,
+      partition: 'persist:eclipse',  // persistent session so camera labels persist
     },
   });
 
@@ -85,10 +107,9 @@ function createMain() {
     const cs = loadSettings(); cs.width = w; cs.height = h; saveSettings(cs);
   });
 
-  // Load studio directly — no webview, no middleman
-  mainWindow.loadURL(APP_URL);
+  mainWindow.loadFile(path.join(__dirname, 'app.html'));
 
-  mainWindow.webContents.once('dom-ready', () => {
+  mainWindow.webContents.once('did-finish-load', () => {
     if (splashWindow && !splashWindow.isDestroyed()) { splashWindow.close(); splashWindow = null; }
     mainWindow.show();
     if (s.startMaximized) mainWindow.maximize();
@@ -100,17 +121,11 @@ function createMain() {
     }
   }, 9000);
 
-  // Open external links in browser, keep internal navigation in-app
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (!url.startsWith('https://eclipselivecam.com')) {
-      shell.openExternal(url);
-      return { action: 'deny' };
-    }
-    return { action: 'allow' };
-  });
-
+  mainWindow.on('maximize',   () => mainWindow.webContents.send('maximized', true));
+  mainWindow.on('unmaximize', () => mainWindow.webContents.send('maximized', false));
   mainWindow.on('closed', () => { mainWindow = null; });
-  Menu.setApplicationMenu(null);
+
+  Menu.setApplicationMenu(null); // no menu bar
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
