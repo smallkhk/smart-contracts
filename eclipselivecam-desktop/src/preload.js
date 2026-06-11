@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('eclipseApp', {
   clearCache:       ()    => ipcRenderer.invoke('clear-cache'),
   openExternal:     (url) => ipcRenderer.invoke('open-external', url),
   toggleAlwaysOnTop:(val) => ipcRenderer.invoke('toggle-always-on-top', val),
-  onMaximized: (cb) => ipcRenderer.on('maximized', (e, val) => cb(val)),
-  onReloadStudio: (cb) => ipcRenderer.on('reload-studio', cb),
+  activateKey:      (key) => ipcRenderer.invoke('activate-key', key),
+  activationSuccess:()    => ipcRenderer.invoke('activation-success'),
+  onMaximized:      (cb)  => ipcRenderer.on('maximized', (e, val) => cb(val)),
+  onReloadStudio:   (cb)  => ipcRenderer.on('reload-studio', cb),
 });

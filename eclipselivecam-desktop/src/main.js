@@ -2,9 +2,10 @@ const { app, BrowserWindow, session, shell, Menu, ipcMain, nativeTheme } = requi
 const path = require('path');
 const fs   = require('fs');
 
-const APP_URL  = 'https://eclipselivecam.com/studio.html';
-const APP_NAME = 'EclipseLiveCam';
-const VERSION  = app.getVersion();
+const APP_URL      = 'https://eclipselivecam.com/studio.html';
+const APP_NAME     = 'EclipseLiveCam';
+const VERSION      = app.getVersion();
+const LICENSE_API  = 'http://54.241.57.251:3000';
 
 let mainWindow = null;
 let splashWindow = null;
@@ -40,6 +41,30 @@ ipcMain.handle('get-cameras', async () => {
   } catch(e) { return []; }
 });
 ipcMain.handle('toggle-always-on-top', (e, val) => mainWindow?.setAlwaysOnTop(val));
+
+// ── ACTIVATION ────────────────────────────────────────────────────────────────
+ipcMain.handle('activate-key', async (e, key) => {
+  try {
+    const res = await fetch(`${LICENSE_API}/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key }),
+    });
+    const data = await res.json();
+    if (data.valid) {
+      const s = loadSettings();
+      s.activationKey = key;
+      saveSettings(s);
+    }
+    return data;
+  } catch(e) {
+    return { valid: false, reason: 'Could not reach activation server. Check your internet connection.' };
+  }
+});
+
+ipcMain.handle('activation-success', () => {
+  mainWindow?.loadFile(path.join(__dirname, 'app.html'));
+});
 
 // ── PERMISSIONS ───────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
@@ -107,7 +132,13 @@ function createMain() {
     const cs = loadSettings(); cs.width = w; cs.height = h; saveSettings(cs);
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'app.html'));
+  // Show activation screen if not yet activated
+  const activated = !!loadSettings().activationKey;
+  if (activated) {
+    mainWindow.loadFile(path.join(__dirname, 'app.html'));
+  } else {
+    mainWindow.loadFile(path.join(__dirname, 'activate.html'));
+  }
 
   mainWindow.webContents.once('did-finish-load', () => {
     if (splashWindow && !splashWindow.isDestroyed()) { splashWindow.close(); splashWindow = null; }
