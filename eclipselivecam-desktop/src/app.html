@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src *; img-src * data:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; frame-src *; img-src * data: blob:;">
 <title>EclipseLiveCam</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -33,7 +33,7 @@ html,body{height:100%;background:#0c0c0e;color:#e8e8f0;font-family:'Segoe UI',sy
 
 /* ── SIDEBAR ── */
 .sidebar{
-  width:52px;background:#0a0a0d;
+  width:44px;background:#0a0a0d;
   border-right:1px solid rgba(255,255,255,.06);
   display:flex;flex-direction:column;align-items:center;
   padding:.5rem 0;flex-shrink:0;
@@ -63,17 +63,8 @@ html,body{height:100%;background:#0c0c0e;color:#e8e8f0;font-family:'Segoe UI',sy
 .content{flex:1;display:flex;flex-direction:column;overflow:hidden}
 
 /* ── WEBVIEW ── */
-.webview-wrap{flex:1;position:relative;display:flex;overflow:hidden}
 webview{flex:1;border:none;display:block}
 webview[hidden]{display:none}
-.loading-overlay{position:absolute;inset:0;background:#0c0c0e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;z-index:10;transition:opacity .3s}
-.loading-overlay.hide{opacity:0;pointer-events:none}
-.spinner{width:38px;height:38px;border:3px solid rgba(124,58,237,.25);border-top-color:#7c3aed;border-radius:50%;animation:spin 1s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading-text{font-size:.82rem;color:rgba(232,232,240,.35)}
-.error-box{display:none;flex-direction:column;align-items:center;gap:.8rem;text-align:center}
-.error-box.show{display:flex}
-.retry-btn{padding:.45rem 1.2rem;border-radius:8px;border:1px solid rgba(124,58,237,.4);background:rgba(124,58,237,.15);color:#a78bfa;font-family:'Segoe UI',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer}
 
 /* ── INNER PANELS ── */
 .inner-panel{flex:1;overflow-y:auto;display:none;padding:2rem;background:#0c0c0e}
@@ -144,7 +135,7 @@ webview[hidden]{display:none}
 <!-- CUSTOM TITLE BAR -->
 <div class="titlebar">
   <div class="tb-icon"><div class="ico">🌑</div></div>
-  <div class="tb-title">EclipseLiveCam</div>
+  <div class="tb-title">Eclipse Creator Studio</div>
   <div class="tb-controls">
     <button class="tb-ctrl" onclick="EA.minimize()" title="Minimize">
       <svg viewBox="0 0 10 1"><rect width="10" height="1"/></svg>
@@ -184,19 +175,13 @@ webview[hidden]{display:none}
   <div class="content">
 
     <!-- STUDIO (webview) -->
-    <div class="webview-wrap" id="studioWrap">
-      <webview id="studioView" src="" allowpopups
-        webpreferences="contextIsolation=true"
-        style="flex:1;border:none"></webview>
-      <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
-        <div class="loading-text" id="loadingText">Loading Studio…</div>
-        <div class="error-box" id="errorBox">
-          <div style="font-size:.85rem;color:rgba(232,232,240,.5)">Could not load studio</div>
-          <button class="retry-btn" onclick="retryLoad()">↺ Retry</button>
-        </div>
-      </div>
-    </div>
+    <webview id="studioView"
+      src="https://eclipselivecam.com/studio.html"
+      allowpopups
+      partition="persist:eclipse"
+      webpreferences="contextIsolation=no, javascript=yes"
+      useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+      style="flex:1;border:none;display:flex"></webview>
 
     <!-- SETTINGS PANEL -->
     <div class="inner-panel" id="panel-settings">
@@ -324,37 +309,44 @@ let S = {};
 let appUrl = 'https://eclipselivecam.com/studio.html';
 
 async function init() {
-  // Load settings + version
   const [settings, ver, url] = await Promise.all([EA.getSettings(), EA.getVersion(), EA.getAppUrl()]);
   S = settings || {};
   appUrl = url;
 
-  // Apply to UI
-  document.getElementById('zoomRange').value  = S.zoom || 100;
-  document.getElementById('zoomVal').textContent = (S.zoom || 100) + '%';
-  document.getElementById('startMax').checked   = !!S.startMaximized;
-  document.getElementById('alwaysOnTop').checked = !!S.alwaysOnTop;
-  document.getElementById('versionTag').textContent = 'v' + ver;
+  document.getElementById('zoomRange').value     = S.zoom || 100;
+  document.getElementById('zoomVal').textContent  = (S.zoom || 100) + '%';
+  document.getElementById('startMax').checked     = !!S.startMaximized;
+  document.getElementById('alwaysOnTop').checked  = !!S.alwaysOnTop;
+  document.getElementById('versionTag').textContent   = 'v' + ver;
   document.getElementById('aboutVersion').textContent = 'Version ' + ver;
   document.getElementById('aboutBadgeVer').textContent = 'v' + ver;
 
-  // Load the studio webview
   const wv = document.getElementById('studioView');
-  wv.src = appUrl;
   wv.addEventListener('did-finish-load', () => {
-    document.getElementById('loadingOverlay').classList.add('hide');
     if (S.zoom && S.zoom !== 100) wv.setZoomFactor(S.zoom / 100);
-  });
-  wv.addEventListener('did-fail-load', (e) => {
-    if (e.errorCode === -3) return; // aborted (navigation, not a real error)
-    document.getElementById('loadingText').style.display = 'none';
-    document.getElementById('errorBox').classList.add('show');
+    // Enumerate cameras after page loads
+    wv.executeJavaScript(`
+      (async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          stream.getTracks().forEach(t => t.stop());
+        } catch(e) {}
+        try {
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          const cams = devs.filter(d => d.kind === 'videoinput');
+          const sel = document.getElementById('camSel');
+          if (sel && cams.length > 0) {
+            sel.innerHTML = cams.map((c, i) =>
+              '<option value="' + c.deviceId + '">' + (c.label || 'Camera ' + (i+1)) + '</option>'
+            ).join('');
+          }
+        } catch(e) {}
+      })();
+    `).catch(() => {});
   });
 
-  // Listen for maximize changes
   EA.onMaximized(val => updateMaxIcon(val));
 
-  // Clock in status bar
   setInterval(() => {
     document.getElementById('sbTime').textContent = new Date().toLocaleTimeString();
   }, 1000);
@@ -362,14 +354,12 @@ async function init() {
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
 function showTab(tab) {
-  // sidebar buttons
   document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('on'));
-  document.getElementById('btn-'+tab).classList.add('on');
-  // webview wrapper
-  document.getElementById('studioWrap').style.display = tab === 'studio' ? 'flex' : 'none';
-  // panels
+  document.getElementById('btn-' + tab).classList.add('on');
+  const wv = document.getElementById('studioView');
+  wv.style.display = tab === 'studio' ? 'flex' : 'none';
   document.querySelectorAll('.inner-panel').forEach(p => p.classList.remove('show'));
-  if (tab !== 'studio') document.getElementById('panel-'+tab).classList.add('show');
+  if (tab !== 'studio') document.getElementById('panel-' + tab).classList.add('show');
 }
 
 // ── WINDOW CONTROLS ───────────────────────────────────────────────────────────
@@ -380,11 +370,9 @@ async function toggleMax() {
 }
 function updateMaxIcon(maximized) {
   const icon = document.getElementById('maxIcon');
-  if (maximized) {
-    icon.innerHTML = `<path d="M0 3h7v7H0zM3 0h7v7" fill="none" stroke="currentColor" stroke-width="1"/>`;
-  } else {
-    icon.innerHTML = `<rect width="9" height="9" x=".5" y=".5" fill="none" stroke="currentColor" stroke-width="1"/>`;
-  }
+  icon.innerHTML = maximized
+    ? `<path d="M0 3h7v7H0zM3 0h7v7" fill="none" stroke="currentColor" stroke-width="1"/>`
+    : `<rect width="9" height="9" x=".5" y=".5" fill="none" stroke="currentColor" stroke-width="1"/>`;
 }
 
 // ── SETTINGS ─────────────────────────────────────────────────────────────────
@@ -392,51 +380,23 @@ function previewZoom(val) {
   document.getElementById('zoomVal').textContent = val + '%';
   document.getElementById('studioView').setZoomFactor(val / 100);
 }
-
-function toggleAlwaysOnTop(val) {
-  EA.toggleAlwaysOnTop(val);
-}
-
+function toggleAlwaysOnTop(val) { EA.toggleAlwaysOnTop(val); }
 async function saveSettingsUI() {
   const ns = {
-    zoom:          parseInt(document.getElementById('zoomRange').value),
-    startMaximized:document.getElementById('startMax').checked,
-    alwaysOnTop:   document.getElementById('alwaysOnTop').checked,
+    zoom:           parseInt(document.getElementById('zoomRange').value),
+    startMaximized: document.getElementById('startMax').checked,
+    alwaysOnTop:    document.getElementById('alwaysOnTop').checked,
   };
   await EA.saveSettings(ns);
   S = ns;
   showToast('✓ Settings saved');
 }
+async function clearCache() { await EA.clearCache(); showToast('✓ Cache cleared'); }
+function reloadStudio() { document.getElementById('studioView').reload(); showTab('studio'); showToast('↺ Studio reloaded'); }
+function openInBrowser() { EA.openExternal(appUrl); }
+function openExt(url) { EA.openExternal(url); }
 
-async function clearCache() {
-  await EA.clearCache();
-  showToast('✓ Cache cleared');
-}
-
-function reloadStudio() {
-  retryLoad();
-  showTab('studio');
-  showToast('↺ Studio reloaded');
-}
-
-function retryLoad() {
-  const wv = document.getElementById('studioView');
-  const ol = document.getElementById('loadingOverlay');
-  document.getElementById('loadingText').style.display = '';
-  document.getElementById('errorBox').classList.remove('show');
-  ol.classList.remove('hide');
-  wv.src = appUrl;
-}
-
-function openInBrowser() {
-  EA.openExternal(appUrl);
-}
-
-function openExt(url) {
-  EA.openExternal(url);
-}
-
-// ── TOAST ──────────────────────────────────────────────────────────────────────
+// ── TOAST ─────────────────────────────────────────────────────────────────────
 function showToast(msg, ok = true) {
   const t = document.getElementById('toast');
   t.textContent = msg;

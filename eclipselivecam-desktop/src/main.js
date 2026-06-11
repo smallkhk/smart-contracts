@@ -32,7 +32,6 @@ ipcMain.handle('reload-studio',()=> mainWindow?.webContents.send('reload-studio'
 ipcMain.handle('clear-cache', async () => { await session.defaultSession.clearCache(); return true; });
 ipcMain.handle('open-external', (e, url) => shell.openExternal(url));
 ipcMain.handle('get-cameras', async () => {
-  // Enumerate media devices from the webview's session
   try {
     const sources = await mainWindow?.webContents.executeJavaScript(
       'navigator.mediaDevices.enumerateDevices().then(d=>d.filter(x=>x.kind==="videoinput").map(x=>({deviceId:x.deviceId,label:x.label})))'
@@ -70,20 +69,16 @@ ipcMain.handle('activation-success', () => {
 app.whenReady().then(() => {
   const ALLOWED = ['media','camera','microphone','display-capture','notifications','desktopCapture'];
 
-  // Grant on default session
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => cb(ALLOWED.includes(permission)));
   session.defaultSession.setPermissionCheckHandler((wc, permission) => ALLOWED.includes(permission));
 
-  // Also grant on the webview partition used by app.html
   const webviewSession = session.fromPartition('persist:eclipse');
   webviewSession.setPermissionRequestHandler((wc, permission, cb) => cb(ALLOWED.includes(permission)));
   webviewSession.setPermissionCheckHandler((wc, permission) => ALLOWED.includes(permission));
 
-  // Grant device access for camera enumeration
   webviewSession.setDevicePermissionHandler(() => true);
   session.defaultSession.setDevicePermissionHandler(() => true);
 
-  // Apply saved settings
   const s = loadSettings();
   if (s.alwaysOnTop) app.once('browser-window-created', (e, win) => win.setAlwaysOnTop(true));
 
@@ -106,12 +101,12 @@ function createSplash() {
 function createMain() {
   const s = loadSettings();
   mainWindow = new BrowserWindow({
-    width:     s.width    || 1300,
-    height:    s.height   || 840,
-    minWidth:  940,
-    minHeight: 620,
+    width:     s.width    || 1440,
+    height:    s.height   || 860,
+    minWidth:  1200,
+    minHeight: 700,
     show: false,
-    frame: false,          // we draw our own title bar
+    frame: false,
     title: APP_NAME,
     icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
     backgroundColor: '#0c0c0e',
@@ -122,11 +117,10 @@ function createMain() {
       preload: path.join(__dirname, 'preload.js'),
       webviewTag: true,
       webSecurity: false,
-      partition: 'persist:eclipse',  // persistent session so camera labels persist
+      partition: 'persist:eclipse',
     },
   });
 
-  // Save window size on resize
   mainWindow.on('resized', () => {
     const [w, h] = mainWindow.getSize();
     const cs = loadSettings(); cs.width = w; cs.height = h; saveSettings(cs);
@@ -156,7 +150,7 @@ function createMain() {
   mainWindow.on('unmaximize', () => mainWindow.webContents.send('maximized', false));
   mainWindow.on('closed', () => { mainWindow = null; });
 
-  Menu.setApplicationMenu(null); // no menu bar
+  Menu.setApplicationMenu(null);
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
