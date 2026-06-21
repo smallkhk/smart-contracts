@@ -42,16 +42,45 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  build-mac:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: eclipselivecam-desktop
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build macOS (x64 + Apple Silicon)
+        run: npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EclipseLiveCam-macOS
+          path: eclipselivecam-desktop/dist/*.dmg
+          if-no-files-found: error
+          retention-days: 7
+
   release:
-    needs: build-windows
+    needs: [ build-windows, build-mac ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Download Windows artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: EclipseLiveCam-Windows
           path: release-files
 
       - name: Publish to GitHub Release
@@ -60,14 +89,15 @@ jobs:
           tag_name: latest
           name: EclipseLiveCam — Latest Build
           body: |
-            ## Download EclipseLiveCam for Windows
+            ## Download EclipseLiveCam
 
-            | Version | File |
-            |---------|------|
+            | Platform | File |
+            |----------|------|
             | Windows 64-bit | `EclipseLiveCam Setup *-x64.exe` |
             | Windows 32-bit | `EclipseLiveCam Setup *-ia32.exe` |
             | Windows ARM    | `EclipseLiveCam Setup *-arm64.exe` |
+            | macOS (Intel + Apple Silicon) | `.dmg` file |
           make_latest: true
-          files: release-files/*.exe
+          files: release-files/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
