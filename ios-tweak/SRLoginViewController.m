@@ -24,7 +24,10 @@ static NSString *const kServerURL = @"https://api.nexusdrop.space/validate";
             }
         }
     }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (!win) win = [UIApplication sharedApplication].keyWindow;
+#pragma clang diagnostic pop
     if (!win) return;
 
     SRLoginViewController *vc = [[SRLoginViewController alloc] init];
