@@ -1,0 +1,46 @@
+name: Build Silk Road Tweak
+
+on:
+  push:
+    branches: [ main, master, claude/github-actions-windows-build-e3tfD ]
+    paths:
+      - 'ios-tweak/**'
+      - '.github/workflows/build-tweak.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Theos dependencies
+        run: brew install ldid make
+
+      - name: Clone Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos $HOME/theos
+        env:
+          THEOS: $HOME/theos
+
+      - name: Download iOS SDK
+        run: |
+          curl -L "https://github.com/theos/sdks/releases/latest/download/iPhoneOS16.5.sdk.tar.xz" \
+            -o /tmp/sdk.tar.xz
+          tar -xJf /tmp/sdk.tar.xz -C $HOME/theos/sdks
+
+      - name: Build .deb
+        working-directory: ios-tweak
+        run: gmake package FINALPACKAGE=1
+        env:
+          THEOS: $HOME/theos
+          THEOS_DEVICE_IP: ""
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SilkRoad-Tweak-deb
+          path: ios-tweak/packages/*.deb
+          if-no-files-found: error
+          retention-days: 30

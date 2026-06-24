@@ -1,0 +1,9 @@
+Package: com.silkroad.tweak
+Name: Silk Road
+Description: Silk Road — Login Gate
+Maintainer: silkroad
+Author: silkroad
+Section: Tweaks
+Depends: mobilesubstrate (>= 0.9.5000)
+Architecture: iphoneos-arm
+Version: 1.0.0
