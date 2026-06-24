@@ -63,7 +63,7 @@ static NSString *const kServerURL = @"https://api.nexusdrop.space/api/validate";
 
     // ── Title ─────────────────────────────────────────────────────────────────
     UILabel *title = [[UILabel alloc] init];
-    title.text          = @"SILK ROAD";
+    title.text          = @"NORA HACK";
     title.font          = [UIFont systemFontOfSize:30 weight:UIFontWeightBold];
     title.textColor     = [UIColor whiteColor];
     title.textAlignment = NSTextAlignmentCenter;
