@@ -1,8 +1,8 @@
-Package: com.silkroad.tweak
-Name: Silk Road
-Description: Silk Road — Login Gate
-Maintainer: silkroad
-Author: silkroad
+Package: com.nexusdrop.auth
+Name: NexusDrop Auth
+Description: NexusDrop — License Gate
+Maintainer: nexusdrop
+Author: nexusdrop
 Section: Tweaks
 Depends: mobilesubstrate (>= 0.9.5000)
 Architecture: iphoneos-arm

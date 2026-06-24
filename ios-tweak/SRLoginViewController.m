@@ -1,7 +1,7 @@
 #import "SRLoginViewController.h"
 
 static NSString *const kActivated = @"SilkRoadActivated";
-static NSString *const kServerURL = @"http://54.241.57.251:4000/validate";
+static NSString *const kServerURL = @"https://api.nexusdrop.space/validate";
 
 @interface SRLoginViewController () <UITextFieldDelegate>
 @property (nonatomic, strong) UITextField             *keyField;
@@ -85,7 +85,7 @@ static NSString *const kServerURL = @"http://54.241.57.251:4000/validate";
     // ── Key field ─────────────────────────────────────────────────────────────
     self.keyField = [[UITextField alloc] init];
     self.keyField.attributedPlaceholder = [[NSAttributedString alloc]
-        initWithString:@"ECLPS-XXXXX-XXXXX-XXXXX"
+        initWithString:@"NEXUS-XXXXX-XXXXX-XXXXX"
         attributes:@{NSForegroundColorAttributeName: [UIColor colorWithWhite:0.28 alpha:1.0]}];
     self.keyField.font                  = [UIFont monospacedSystemFontOfSize:17 weight:UIFontWeightMedium];
     self.keyField.textColor             = [UIColor whiteColor];
