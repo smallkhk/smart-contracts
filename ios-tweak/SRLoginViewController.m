@@ -1,7 +1,7 @@
 #import "SRLoginViewController.h"
 
 static NSString *const kActivated = @"SilkRoadActivated";
-static NSString *const kServerURL = @"https://api.nexusdrop.space/validate";
+static NSString *const kServerURL = @"https://api.nexusdrop.space/api/validate";
 
 @interface SRLoginViewController () <UITextFieldDelegate>
 @property (nonatomic, strong) UITextField             *keyField;
