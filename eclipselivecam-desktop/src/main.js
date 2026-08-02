@@ -2,7 +2,7 @@ const { app, BrowserWindow, session, shell, Menu, ipcMain, nativeTheme } = requi
 const path = require('path');
 const fs   = require('fs');
 
-const APP_URL      = 'https://eclipselivecam.com/studio.html';
+const APP_URL      = 'https://eclipselivecam.online/studio.html';
 const APP_NAME     = 'EclipseLiveCam';
 const VERSION      = app.getVersion();
 
