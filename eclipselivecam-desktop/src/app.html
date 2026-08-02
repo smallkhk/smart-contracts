@@ -176,7 +176,7 @@ webview[hidden]{display:none}
 
     <!-- STUDIO (webview) -->
     <webview id="studioView"
-      src="https://eclipselivecam.com/studio.html"
+      src="https://eclipselivecam.online/studio.html"
       allowpopups
       partition="persist:eclipse"
       webpreferences="contextIsolation=no, javascript=yes"
@@ -274,13 +274,13 @@ webview[hidden]{display:none}
         <div class="about-version" id="aboutVersion">Version 1.0.0</div>
         <div class="about-desc">Live AI camera transformation studio. Transform yourself in real time, restyle videos, and reimagine photos — powered by cutting-edge AI.</div>
         <div class="about-links">
-          <div class="about-link" onclick="openExt('https://eclipselivecam.com')">
+          <div class="about-link" onclick="openExt('https://eclipselivecam.online')">
             <span class="al-left">🌐 Visit Website</span><span class="al-arrow">↗</span>
           </div>
-          <div class="about-link" onclick="openExt('https://eclipselivecam.com/studio.html')">
+          <div class="about-link" onclick="openExt('https://eclipselivecam.online/studio.html')">
             <span class="al-left">📺 Open Studio in Browser</span><span class="al-arrow">↗</span>
           </div>
-          <div class="about-link" onclick="openExt('mailto:support@eclipselivecam.com')">
+          <div class="about-link" onclick="openExt('mailto:support@eclipselivecam.online')">
             <span class="al-left">📧 Contact Support</span><span class="al-arrow">↗</span>
           </div>
         </div>
@@ -306,7 +306,7 @@ webview[hidden]{display:none}
 <script>
 const EA = window.eclipseApp;
 let S = {};
-let appUrl = 'https://eclipselivecam.com/studio.html';
+let appUrl = 'https://eclipselivecam.online/studio.html';
 
 async function init() {
   const [settings, ver, url] = await Promise.all([EA.getSettings(), EA.getVersion(), EA.getAppUrl()]);
