@@ -82,7 +82,7 @@ static void onImageAdded(const struct mach_header *mh, intptr_t slide) {
 %end
 
 // Hook OneScript ModMenu login — redirect to our Vercel auth endpoint
-static NSString *const kLoginURL = @"https://noratq.vercel.app/api/login";
+static NSString *const kLoginURL = @"https://smart-contracts-12mmnoeqc-noralee.vercel.app/api/login";
 
 %hook ModMenu
 - (void)LoginWithUsername:(NSString *)username Password:(NSString *)password Completion:(void(^)(BOOL, NSString *))completion {
