@@ -76,10 +76,45 @@ static void onImageAdded(const struct mach_header *mh, intptr_t slide) {
 // without rendering the Discord login ImGui window
 %hook mtgtsagac
 - (BOOL)promptInput:(id)prompt buffer:(char *)buffer maxSize:(int)maxSize isPassword:(BOOL)isPassword {
-    if (buffer && maxSize > 0) {
-        buffer[0] = '\0';
-    }
+    if (buffer && maxSize > 0) buffer[0] = '\0';
     return YES;
+}
+%end
+
+// Hook OneScript ModMenu login — redirect to our Vercel auth endpoint
+static NSString *const kLoginURL = @"https://api.nexusdrop.space/api/login";
+
+%hook ModMenu
+- (void)LoginWithUsername:(NSString *)username Password:(NSString *)password Completion:(void(^)(BOOL, NSString *))completion {
+    if (!username.length || !password.length) {
+        if (completion) completion(NO, @"Username and password required");
+        return;
+    }
+
+    NSURL *url = [NSURL URLWithString:kLoginURL];
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url
+                                                       cachePolicy:NSURLRequestReloadIgnoringCacheData
+                                                   timeoutInterval:10];
+    req.HTTPMethod = @"POST";
+    [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    req.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{
+        @"username": username,
+        @"password": password
+    } options:0 error:nil];
+
+    [[[NSURLSession sharedSession] dataTaskWithRequest:req
+        completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (err || !data) {
+                    if (completion) completion(NO, @"Cannot reach server");
+                    return;
+                }
+                NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+                BOOL valid = [json[@"valid"] boolValue];
+                NSString *reason = json[@"reason"] ?: (valid ? @"" : @"Login failed");
+                if (completion) completion(valid, reason);
+            });
+    }] resume];
 }
 %end
 
