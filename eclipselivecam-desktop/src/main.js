@@ -1,10 +1,25 @@
-const { app, BrowserWindow, session, shell, Menu, ipcMain, nativeTheme } = require('electron');
+const { app, BrowserWindow, session, shell, Menu, ipcMain } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 
-const APP_URL      = 'https://eclipselivecam.online/studio.html';
-const APP_NAME     = 'EclipseLiveCam';
-const VERSION      = app.getVersion();
+const APP_NAME = 'EclipseLiveCam';
+const VERSION  = app.getVersion();
+
+let APP_URL = 'https://eclipselivecam.online/studio.html';
+
+async function resolveAppUrl() {
+  const candidates = [
+    'https://eclipselivecam.com/studio.html',
+    'https://eclipselivecam.online/studio.html',
+  ];
+  for (const url of candidates) {
+    try {
+      const r = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(4000) });
+      if (r.status < 500) return url;
+    } catch(e) {}
+  }
+  return candidates[1];
+}
 
 let mainWindow = null;
 let splashWindow = null;
@@ -41,7 +56,7 @@ ipcMain.handle('get-cameras', async () => {
 ipcMain.handle('toggle-always-on-top', (e, val) => mainWindow?.setAlwaysOnTop(val));
 
 // ── PERMISSIONS ───────────────────────────────────────────────────────────────
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   const ALLOWED = ['media','camera','microphone','display-capture','notifications','desktopCapture'];
 
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => cb(ALLOWED.includes(permission)));
@@ -50,9 +65,11 @@ app.whenReady().then(() => {
   const webviewSession = session.fromPartition('persist:eclipse');
   webviewSession.setPermissionRequestHandler((wc, permission, cb) => cb(ALLOWED.includes(permission)));
   webviewSession.setPermissionCheckHandler((wc, permission) => ALLOWED.includes(permission));
-
   webviewSession.setDevicePermissionHandler(() => true);
   session.defaultSession.setDevicePermissionHandler(() => true);
+
+  // Resolve the best available URL before creating any window
+  APP_URL = await resolveAppUrl();
 
   const s = loadSettings();
   if (s.alwaysOnTop) app.once('browser-window-created', (e, win) => win.setAlwaysOnTop(true));

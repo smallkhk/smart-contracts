@@ -176,7 +176,6 @@ webview[hidden]{display:none}
 
     <!-- STUDIO (webview) -->
     <webview id="studioView"
-      src="https://eclipselivecam.online/studio.html"
       allowpopups
       partition="persist:eclipse"
       webpreferences="contextIsolation=no, javascript=yes"
@@ -306,7 +305,7 @@ webview[hidden]{display:none}
 <script>
 const EA = window.eclipseApp;
 let S = {};
-let appUrl = 'https://eclipselivecam.online/studio.html';
+let appUrl = '';
 
 async function init() {
   const [settings, ver, url] = await Promise.all([EA.getSettings(), EA.getVersion(), EA.getAppUrl()]);
@@ -322,6 +321,7 @@ async function init() {
   document.getElementById('aboutBadgeVer').textContent = 'v' + ver;
 
   const wv = document.getElementById('studioView');
+  wv.src = appUrl;
   wv.addEventListener('did-finish-load', () => {
     if (S.zoom && S.zoom !== 100) wv.setZoomFactor(S.zoom / 100);
     // Enumerate cameras after page loads
