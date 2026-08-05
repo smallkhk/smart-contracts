@@ -43,3 +43,15 @@ jobs:
           path: ios-tweak/packages/*.deb
           if-no-files-found: error
           retention-days: 30
+
+      - name: Get version
+        id: version
+        run: echo "ver=$(grep '^Version:' ios-tweak/control | awk '{print $2}')" >> $GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: tweak-v${{ steps.version.outputs.ver }}
+          name: NexusDrop Auth v${{ steps.version.outputs.ver }}
+          files: ios-tweak/packages/*.deb
+          make_latest: true
