@@ -26,21 +26,17 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Set build version
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version='1.0.${{ github.run_number }}';fs.writeFileSync('package.json',JSON.stringify(p,null,2))"
+
       - name: Install dependencies
         run: npm install
 
-      - name: Build Windows (x64, ia32, arm64)
-        run: npm run build:win
+      - name: Build & publish Windows
+        run: npm run build:win -- --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: EclipseLiveCam-Windows
-          path: eclipselivecam-desktop/dist/*.exe
-          if-no-files-found: error
-          retention-days: 7
 
   build-mac:
     runs-on: macos-latest
@@ -56,48 +52,14 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Set build version
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version='1.0.${{ github.run_number }}';fs.writeFileSync('package.json',JSON.stringify(p,null,2))"
+
       - name: Install dependencies
         run: npm install
 
-      - name: Build macOS (x64 + Apple Silicon)
-        run: npm run build:mac
+      - name: Build & publish macOS
+        run: npm run build:mac -- --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: EclipseLiveCam-macOS
-          path: eclipselivecam-desktop/dist/*.dmg
-          if-no-files-found: error
-          retention-days: 7
-
-  release:
-    needs: [ build-windows, build-mac ]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-files
-
-      - name: Publish to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: latest
-          name: EclipseLiveCam — Latest Build
-          body: |
-            ## Download EclipseLiveCam
-
-            | Platform | File |
-            |----------|------|
-            | Windows 64-bit | `EclipseLiveCam Setup *-x64.exe` |
-            | Windows 32-bit | `EclipseLiveCam Setup *-ia32.exe` |
-            | Windows ARM    | `EclipseLiveCam Setup *-arm64.exe` |
-            | macOS (Intel + Apple Silicon) | `.dmg` file |
-          make_latest: true
-          files: release-files/**/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

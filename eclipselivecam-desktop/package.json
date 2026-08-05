@@ -11,7 +11,11 @@
     "build:linux": "electron-builder --linux"
   },
   "build": {
-    "publish": null,
+    "publish": {
+      "provider": "github",
+      "owner": "smallkhk",
+      "repo": "smart-contracts"
+    },
     "appId": "com.eclipselivecam.app",
     "productName": "EclipseLiveCam",
     "copyright": "© 2026 EclipseLiveCam",
@@ -57,6 +61,9 @@
       ],
       "category": "Photography"
     }
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.0"
   },
   "devDependencies": {
     "electron": "^29.0.0",

@@ -1,6 +1,14 @@
 const { app, BrowserWindow, session, shell, Menu, ipcMain } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs   = require('fs');
+
+autoUpdater.autoDownload         = true;
+autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.logger               = null;
+autoUpdater.on('update-downloaded', () => {
+  mainWindow?.webContents.send('update-ready');
+});
 
 const APP_NAME = 'EclipseLiveCam';
 const VERSION  = app.getVersion();
@@ -54,6 +62,7 @@ ipcMain.handle('get-cameras', async () => {
   } catch(e) { return []; }
 });
 ipcMain.handle('toggle-always-on-top', (e, val) => mainWindow?.setAlwaysOnTop(val));
+ipcMain.handle('install-update', () => autoUpdater.quitAndInstall());
 
 // ── PERMISSIONS ───────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
@@ -137,6 +146,9 @@ function createMain() {
   mainWindow.on('closed', () => { mainWindow = null; });
 
   Menu.setApplicationMenu(null);
+
+  // Check for updates silently after window loads
+  setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 5000);
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

@@ -301,6 +301,11 @@ webview[hidden]{display:none}
 </div><!-- /shell -->
 
 <div class="toast" id="toast"></div>
+<div id="updateBanner" style="display:none;position:fixed;bottom:2rem;right:2rem;background:#1a1a22;border:1px solid rgba(124,58,237,.4);border-radius:12px;padding:.75rem 1.2rem;display:none;align-items:center;gap:.8rem;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.5)">
+  <span style="font-size:.82rem;color:#a78bfa">⬆ Update ready — installs on restart</span>
+  <button onclick="EA.installUpdate()" style="padding:.35rem .8rem;border-radius:7px;border:none;background:#7c3aed;color:#fff;font-size:.78rem;font-weight:700;cursor:pointer">Restart Now</button>
+  <button onclick="document.getElementById('updateBanner').style.display='none'" style="background:none;border:none;color:rgba(232,232,240,.4);cursor:pointer;font-size:1rem;line-height:1">✕</button>
+</div>
 
 <script>
 const EA = window.eclipseApp;
@@ -346,6 +351,7 @@ async function init() {
   });
 
   EA.onMaximized(val => updateMaxIcon(val));
+  EA.onUpdateReady(() => showUpdateBanner());
 
   setInterval(() => {
     document.getElementById('sbTime').textContent = new Date().toLocaleTimeString();
@@ -397,6 +403,10 @@ function openInBrowser() { EA.openExternal(appUrl); }
 function openExt(url) { EA.openExternal(url); }
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
+function showUpdateBanner() {
+  document.getElementById('updateBanner').style.display = 'flex';
+}
+
 function showToast(msg, ok = true) {
   const t = document.getElementById('toast');
   t.textContent = msg;
