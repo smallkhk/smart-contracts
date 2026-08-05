@@ -14,7 +14,8 @@
     "publish": {
       "provider": "github",
       "owner": "smallkhk",
-      "repo": "smart-contracts"
+      "repo": "smart-contracts",
+      "releaseType": "release"
     },
     "appId": "com.eclipselivecam.app",
     "productName": "EclipseLiveCam",
