@@ -16,17 +16,13 @@ const VERSION  = app.getVersion();
 let APP_URL = 'https://eclipselivecam.online/studio.html';
 
 async function resolveAppUrl() {
-  const candidates = [
-    'https://eclipselivecam.com/studio.html',
-    'https://eclipselivecam.online/studio.html',
-  ];
-  for (const url of candidates) {
-    try {
-      const r = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(4000) });
-      if (r.status < 500) return url;
-    } catch(e) {}
-  }
-  return candidates[1];
+  const PRIMARY  = 'https://eclipselivecam.online/studio.html';
+  const FALLBACK = 'https://eclipselivecam.com/studio.html';
+  try {
+    const r = await fetch(PRIMARY, { method: 'HEAD', signal: AbortSignal.timeout(4000) });
+    if (r.status < 500) return PRIMARY;
+  } catch(e) {}
+  return FALLBACK;
 }
 
 let mainWindow = null;
