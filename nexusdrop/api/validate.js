@@ -1,4 +1,5 @@
 const { sql } = require('@vercel/postgres');
+const crypto  = require('crypto');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,17 +15,16 @@ module.exports = async function handler(req, res) {
 
   try {
     const { rows } = await sql`
-      SELECT id, is_active, expires_at, device_id
+      SELECT id, is_active, expires_at, device_id, tier
       FROM license_keys
       WHERE key_value = ${key}
       LIMIT 1
     `;
 
-    if (!rows.length)      return res.json({ valid: false, reason: 'Invalid license key' });
+    if (!rows.length)       return res.json({ valid: false, reason: 'Invalid license key' });
     if (!rows[0].is_active) return res.json({ valid: false, reason: 'Key has been disabled' });
-    if (rows[0].expires_at && new Date(rows[0].expires_at) < new Date()) {
+    if (rows[0].expires_at && new Date(rows[0].expires_at) < new Date())
       return res.json({ valid: false, reason: 'License key expired' });
-    }
 
     // Bind to device on first use
     const device = (body.device || '').toString().trim() || null;
@@ -38,7 +38,15 @@ module.exports = async function handler(req, res) {
       return res.json({ valid: false, reason: 'Key already used on another device' });
     }
 
-    return res.json({ valid: true });
+    const farFuture = '2099-12-31T00:00:00Z';
+
+    return res.json({
+      valid:             true,
+      tier:              rows[0].tier || 'premium',
+      LicenseExpiresAt:  farFuture,
+      Token_Expires_At:  farFuture,
+      Encrypted_Payload: crypto.randomBytes(24).toString('hex'),
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ valid: false, reason: 'Server error' });

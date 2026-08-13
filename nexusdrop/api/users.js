@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
           VALUES (
             ${username.toLowerCase().trim()},
             ${hash},
-            ${tier || 'standard'},
+            ${tier || 'premium'},
             ${expires || null}
           )
         `;

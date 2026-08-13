@@ -25,19 +25,20 @@ module.exports = async function handler(req, res) {
       return res.json({ keys: rows });
     }
 
-    // POST — generate or add key
+    // POST — generate or manage keys
     if (req.method === 'POST') {
-      const { action, count = 1, label, expires, key_value } = req.body || {};
+      const { action, count = 1, label, expires, key_value, tier, id } = req.body || {};
 
       if (action === 'generate') {
-        const n = Math.min(100, Math.max(1, parseInt(count) || 1));
+        const n    = Math.min(100, Math.max(1, parseInt(count) || 1));
+        const t    = (tier || 'premium').toLowerCase();
         const added = [];
         for (let i = 0; i < n; i++) {
           const k = genKey();
           try {
             await sql`
-              INSERT INTO license_keys (key_value, label, expires_at)
-              VALUES (${k}, ${label || null}, ${expires || null})
+              INSERT INTO license_keys (key_value, label, tier, expires_at)
+              VALUES (${k}, ${label || null}, ${t}, ${expires || null})
             `;
             added.push(k);
           } catch { /* duplicate, skip */ }
@@ -47,17 +48,28 @@ module.exports = async function handler(req, res) {
 
       if (action === 'add') {
         const k = (key_value || '').toUpperCase().trim();
+        const t = (tier || 'premium').toLowerCase();
         if (!k) return res.status(400).json({ error: 'No key provided' });
         await sql`
-          INSERT INTO license_keys (key_value, label, expires_at)
-          VALUES (${k}, ${label || null}, ${expires || null})
+          INSERT INTO license_keys (key_value, label, tier, expires_at)
+          VALUES (${k}, ${label || null}, ${t}, ${expires || null})
         `;
         return res.json({ ok: true, key: k });
       }
 
       if (action === 'toggle') {
-        const { id } = req.body;
         await sql`UPDATE license_keys SET is_active = NOT is_active WHERE id = ${id}`;
+        return res.json({ ok: true });
+      }
+
+      if (action === 'set_tier') {
+        const t = (tier || 'premium').toLowerCase();
+        await sql`UPDATE license_keys SET tier = ${t} WHERE id = ${id}`;
+        return res.json({ ok: true });
+      }
+
+      if (action === 'reset_device') {
+        await sql`UPDATE license_keys SET device_id = NULL, activated_at = NULL WHERE id = ${id}`;
         return res.json({ ok: true });
       }
     }

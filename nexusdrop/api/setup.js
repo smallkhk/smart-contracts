@@ -1,4 +1,4 @@
-// Run ONCE at /api/setup to create the database table, then remove this file.
+// Run ONCE at /api/setup to create the license_keys table, then remove this file.
 const { sql } = require('@vercel/postgres');
 
 module.exports = async function handler(req, res) {
@@ -9,6 +9,7 @@ module.exports = async function handler(req, res) {
         key_value    VARCHAR(64)  NOT NULL UNIQUE,
         label        VARCHAR(128),
         device_id    VARCHAR(255),
+        tier         VARCHAR(32)  NOT NULL DEFAULT 'premium',
         is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
         activated_at TIMESTAMPTZ,
         expires_at   TIMESTAMPTZ,
