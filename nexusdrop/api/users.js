@@ -58,6 +58,13 @@ module.exports = async function handler(req, res) {
         await sql`UPDATE users SET password_hash = ${hash} WHERE id = ${id}`;
         return res.json({ ok: true });
       }
+
+      if (action === 'set_tier') {
+        const { id } = req.body;
+        const t = (tier || 'premium').toLowerCase();
+        await sql`UPDATE users SET tier = ${t} WHERE id = ${id}`;
+        return res.json({ ok: true });
+      }
     }
 
     // DELETE — remove user
