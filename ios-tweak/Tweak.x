@@ -84,6 +84,44 @@ static void onImageAdded(const struct mach_header *mh, intptr_t slide) {
 // Hook OneScript ModMenu login — redirect to our Vercel auth endpoint
 static NSString *const kLoginURL = @"https://noratq.vercel.app/api/login";
 
+// The completion block only drives the login-screen UI. OneScript's own
+// authorization state — read elsewhere via IsAuthorized — lives in the ivars
+// _Authorized / _CurrentToken / _ExpiryDate, which the ORIGINAL (unhooked)
+// implementation set from the server's LicenseExpiresAt/Token_Expires_At/
+// Encrypted_Payload fields. Since we fully replace the method (no %orig),
+// that code never runs — so we set the same ivars ourselves via KVC.
+static NSDate *ss_parseISO8601(NSString *s) {
+    if (!s.length) return nil;
+    if (@available(iOS 10.0, *)) {
+        NSISO8601DateFormatter *f = [NSISO8601DateFormatter new];
+        NSDate *d = [f dateFromString:s];
+        if (d) return d;
+    }
+    NSDateFormatter *f2 = [NSDateFormatter new];
+    f2.dateFormat = @"yyyy-MM-dd'T'HH:mm:ssZZZZZ";
+    f2.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+    return [f2 dateFromString:s];
+}
+
+static void ss_applyAuthState(id self_, NSDictionary *json) {
+    @try {
+        NSDate *expiry = ss_parseISO8601(json[@"LicenseExpiresAt"])
+                       ?: ss_parseISO8601(json[@"Token_Expires_At"])
+                       ?: [NSDate dateWithTimeIntervalSinceNow:60*60*24*365*10]; // 10yr fallback
+        NSString *tokenPayload = json[@"Encrypted_Payload"];
+        if (![tokenPayload isKindOfClass:[NSString class]] || !tokenPayload.length) {
+            tokenPayload = [[NSProcessInfo processInfo] globallyUniqueString];
+        }
+        [self_ setValue:@YES        forKey:@"Authorized"];
+        [self_ setValue:tokenPayload forKey:@"CurrentToken"];
+        [self_ setValue:expiry       forKey:@"ExpiryDate"];
+    } @catch (NSException *e) {
+        // Ivar names/types were a best guess from the symbol table — never let
+        // a mismatch crash the app. The completion(YES,...) call below still
+        // lets the user through even if this internal state write fails.
+    }
+}
+
 %hook ModMenu
 - (void)LoginWithUsername:(NSString *)username Password:(NSString *)password Completion:(void(^)(BOOL, NSString *))completion {
     if (!username.length || !password.length) {
@@ -102,6 +140,7 @@ static NSString *const kLoginURL = @"https://noratq.vercel.app/api/login";
         @"password": password
     } options:0 error:nil];
 
+    __weak typeof(self) weakSelf = self;
     [[[NSURLSession sharedSession] dataTaskWithRequest:req
         completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -112,6 +151,7 @@ static NSString *const kLoginURL = @"https://noratq.vercel.app/api/login";
                 NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
                 BOOL valid = [json[@"valid"] boolValue];
                 NSString *reason = json[@"reason"] ?: (valid ? @"" : @"Login failed");
+                if (valid) ss_applyAuthState(weakSelf, json);
                 if (completion) completion(valid, reason);
             });
     }] resume];
