@@ -40,9 +40,16 @@ module.exports = async function handler(req, res) {
 
     await sql`UPDATE users SET last_login = NOW() WHERE id = ${rows[0].id}`;
 
+    // Far-future expiry — the app's session-persistence check reads these two
+    // fields directly (see Tweak.x), independent of our own users.expires_at gate above.
+    const farFuture = '2099-12-31T00:00:00Z';
+
     return res.json({
       valid: true,
       tier: rows[0].tier || 'standard',
+      LicenseExpiresAt: farFuture,
+      Token_Expires_At: farFuture,
+      Encrypted_Payload: crypto.randomBytes(24).toString('hex'),
     });
   } catch (err) {
     console.error(err);
