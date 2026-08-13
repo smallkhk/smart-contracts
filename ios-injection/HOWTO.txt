@@ -1,0 +1,51 @@
+HOW TO INJECT YOUR DYLIB INTO AN IPA AND RE-SIGN IT
+=====================================================
+
+REQUIREMENTS
+------------
+- macOS machine (codesign is macOS-only)
+- Xcode command-line tools: xcode-select --install
+- insert_dylib: brew install insert_dylib
+  (script will try to install it automatically if missing)
+
+FOR REAL DEVICES (needs Apple Developer account)
+-------------------------------------------------
+1. Build your dylib in Xcode → Products/YourLib.dylib
+2. Download the target IPA
+3. Export your .mobileprovision from Xcode or developer.apple.com
+4. Find your signing identity:
+     security find-identity -v -p codesigning
+5. Run:
+     chmod +x inject_sign.sh
+     ./inject_sign.sh App.ipa YourLib.dylib "iPhone Distribution: Name (TEAMID)" App.mobileprovision Patched.ipa
+
+FOR JAILBROKEN DEVICES (no Apple cert needed)
+----------------------------------------------
+1. Build your dylib
+2. Run:
+     ./inject_sign.sh App.ipa YourLib.dylib adhoc "" Patched.ipa
+3. Install with Filza or ideviceinstaller
+
+WHAT THE SCRIPT DOES
+--------------------
+1. Unzips the IPA (it's just a zip file)
+2. Copies your dylib into Payload/App.app/Frameworks/
+3. Patches the main binary's Mach-O header to add an
+   LC_LOAD_DYLIB entry pointing to @executable_path/Frameworks/YourLib.dylib
+   (so iOS loads your dylib automatically when the app starts)
+4. Re-signs the dylib, all frameworks, then the app bundle
+5. Repacks everything back into a .ipa
+
+YOUR LOGIN LOCK DYLIB
+---------------------
+The dylib entry point (e.g. a __attribute__((constructor)) function or
++load method) runs before main(). Use it to:
+  - Show a UIWindow/UIViewController login screen
+  - Call your EC2 server at http://54.241.57.251:4000/validate
+  - If login fails → [UIApplication.sharedApplication terminate] or just block
+  - If login succeeds → return and let the app start normally
+
+EC2 validate endpoint:
+  POST http://54.241.57.251:4000/validate
+  Body: { "key": "ECLPS-XXXXX-XXXXX-XXXXX" }
+  Response: { "valid": true } or { "valid": false, "reason": "..." }

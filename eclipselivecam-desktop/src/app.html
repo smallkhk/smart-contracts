@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; frame-src *; img-src * data: blob:;">
+<title>EclipseLiveCam</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#0c0c0e;color:#e8e8f0;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;user-select:none}
+
+/* ── CUSTOM TITLE BAR ── */
+.titlebar{
+  height:36px;background:#080808;
+  display:flex;align-items:center;
+  -webkit-app-region:drag;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  flex-shrink:0;
+}
+.tb-icon{width:46px;display:flex;align-items:center;justify-content:center;-webkit-app-region:no-drag}
+.tb-icon img{width:18px;height:18px;border-radius:50%}
+.tb-icon .ico{width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);display:flex;align-items:center;justify-content:center;font-size:.6rem}
+.tb-title{font-size:.78rem;font-weight:600;color:rgba(232,232,240,.55);letter-spacing:.02em;flex:1}
+.tb-controls{display:flex;-webkit-app-region:no-drag;height:100%}
+.tb-ctrl{width:46px;height:100%;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:.7rem;color:rgba(232,232,240,.5);transition:background .15s;border:none;background:none}
+.tb-ctrl:hover{background:rgba(255,255,255,.08);color:rgba(232,232,240,.9)}
+.tb-ctrl.close:hover{background:#c42b1c;color:#fff}
+.tb-ctrl svg{width:10px;height:10px;fill:currentColor}
+
+/* ── LAYOUT ── */
+.shell{display:flex;height:calc(100vh - 36px)}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:44px;background:#0a0a0d;
+  border-right:1px solid rgba(255,255,255,.06);
+  display:flex;flex-direction:column;align-items:center;
+  padding:.5rem 0;flex-shrink:0;
+}
+.sb-logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#a855f7);
+  display:flex;align-items:center;justify-content:center;font-size:.95rem;margin-bottom:.8rem;
+  box-shadow:0 3px 12px rgba(124,58,237,.4)}
+.sb-sep{width:26px;height:1px;background:rgba(255,255,255,.07);margin:.3rem 0}
+.sb-btn{
+  width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:1rem;transition:.15s;border:none;background:transparent;
+  color:rgba(232,232,240,.35);position:relative;
+}
+.sb-btn:hover{background:rgba(255,255,255,.07);color:rgba(232,232,240,.8)}
+.sb-btn.on{background:rgba(124,58,237,.2);color:#a78bfa}
+.sb-btn .tooltip{
+  position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);
+  background:#1a1a22;border:1px solid rgba(255,255,255,.1);border-radius:7px;
+  padding:.3rem .65rem;font-size:.74rem;color:#e8e8f0;white-space:nowrap;
+  pointer-events:none;opacity:0;transition:opacity .15s;z-index:999;font-family:'Segoe UI',sans-serif;
+}
+.sb-btn:hover .tooltip{opacity:1}
+.sb-spacer{flex:1}
+.sb-version{font-size:.6rem;color:rgba(232,232,240,.2);text-align:center;padding:.4rem 0;font-family:monospace}
+
+/* ── MAIN CONTENT ── */
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── WEBVIEW ── */
+webview{flex:1;border:none;display:block}
+webview[hidden]{display:none}
+
+/* ── INNER PANELS ── */
+.inner-panel{flex:1;overflow-y:auto;display:none;padding:2rem;background:#0c0c0e}
+.inner-panel.show{display:block}
+
+/* settings */
+.panel-title{font-size:1.1rem;font-weight:700;margin-bottom:.35rem;letter-spacing:-.01em}
+.panel-sub{font-size:.82rem;color:rgba(232,232,240,.4);margin-bottom:2rem}
+.settings-group{background:#111118;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;margin-bottom:1.2rem}
+.sg-header{padding:.9rem 1.2rem;border-bottom:1px solid rgba(255,255,255,.06);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(232,232,240,.4)}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:.95rem 1.2rem;border-bottom:1px solid rgba(255,255,255,.05)}
+.setting-row:last-child{border-bottom:none}
+.sr-left .sr-label{font-size:.9rem;font-weight:500;color:#e8e8f0}
+.sr-left .sr-desc{font-size:.76rem;color:rgba(232,232,240,.38);margin-top:.15rem}
+/* toggle switch */
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:rgba(255,255,255,.12);border-radius:11px;transition:.2s;cursor:pointer}
+.toggle input:checked~.toggle-track{background:#7c3aed}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.2s;pointer-events:none}
+.toggle input:checked~.toggle-track~.toggle-thumb,.toggle input:checked+.toggle-track+.toggle-thumb{left:21px}
+/* custom range */
+.range-wrap{display:flex;align-items:center;gap:.8rem;min-width:160px}
+.range-wrap input[type=range]{flex:1;accent-color:#7c3aed;cursor:pointer}
+.range-val{font-size:.8rem;font-weight:700;color:#a78bfa;min-width:32px;text-align:right}
+/* action button */
+.action-btn{padding:.45rem 1rem;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:rgba(232,232,240,.7);font-family:'Segoe UI',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;transition:.2s}
+.action-btn:hover{background:rgba(255,255,255,.1);color:#e8e8f0}
+.action-btn.danger:hover{background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.4);color:#fca5a5}
+.action-btn.primary{background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.4);color:#a78bfa}
+.action-btn.primary:hover{background:rgba(124,58,237,.35)}
+
+/* ── ABOUT ── */
+.about-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:2rem}
+.about-logo{width:80px;height:80px;border-radius:22px;background:linear-gradient(135deg,#7c3aed,#a855f7);display:flex;align-items:center;justify-content:center;font-size:2rem;margin-bottom:1.5rem;box-shadow:0 8px 32px rgba(124,58,237,.45)}
+.about-name{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;margin-bottom:.3rem}
+.about-version{font-size:.82rem;color:rgba(232,232,240,.4);margin-bottom:.5rem;font-family:monospace}
+.about-desc{font-size:.88rem;color:rgba(232,232,240,.45);max-width:360px;line-height:1.7;margin-bottom:2rem}
+.about-links{display:flex;flex-direction:column;gap:.6rem;width:100%;max-width:280px}
+.about-link{display:flex;align-items:center;justify-content:space-between;padding:.7rem 1rem;
+  background:#111118;border:1px solid rgba(255,255,255,.07);border-radius:10px;cursor:pointer;transition:.2s}
+.about-link:hover{border-color:rgba(124,58,237,.4);background:rgba(124,58,237,.08)}
+.about-link .al-left{display:flex;align-items:center;gap:.6rem;font-size:.86rem;font-weight:500}
+.about-link .al-arrow{font-size:.75rem;color:rgba(232,232,240,.3)}
+.about-badges{display:flex;gap:.6rem;justify-content:center;margin-top:1.5rem;flex-wrap:wrap}
+.badge{padding:.3rem .8rem;border-radius:50px;font-size:.72rem;font-weight:600;border:1px solid}
+.badge.built{background:rgba(124,58,237,.12);border-color:rgba(124,58,237,.3);color:#a78bfa}
+.badge.version{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.3);color:#34d399}
+
+/* ── STATUS BAR ── */
+.statusbar{height:22px;background:#080808;border-top:1px solid rgba(255,255,255,.05);
+  display:flex;align-items:center;padding:0 1rem;gap:1.2rem;flex-shrink:0}
+.sb-item{font-size:.67rem;color:rgba(232,232,240,.28);display:flex;align-items:center;gap:.3rem}
+.sb-dot{width:5px;height:5px;border-radius:50%;background:rgba(232,232,240,.2)}
+.sb-dot.green{background:#34d399;box-shadow:0 0 4px rgba(52,211,153,.6)}
+.sb-dot.purple{background:#7c3aed}
+
+/* toast */
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);
+  background:#1a1a22;border:1px solid rgba(255,255,255,.1);border-radius:10px;
+  padding:.65rem 1.2rem;font-size:.82rem;display:none;align-items:center;gap:.5rem;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:9999;white-space:nowrap}
+.toast.show{display:flex}.toast.ok{border-color:rgba(52,211,153,.3);color:#6ee7b7}
+</style>
+</head>
+<body>
+
+<!-- CUSTOM TITLE BAR -->
+<div class="titlebar">
+  <div class="tb-icon"><div class="ico">🌑</div></div>
+  <div class="tb-title">Eclipse Creator Studio</div>
+  <div class="tb-controls">
+    <button class="tb-ctrl" onclick="EA.minimize()" title="Minimize">
+      <svg viewBox="0 0 10 1"><rect width="10" height="1"/></svg>
+    </button>
+    <button class="tb-ctrl" id="maxBtn" onclick="toggleMax()" title="Maximize">
+      <svg viewBox="0 0 10 10" id="maxIcon"><rect width="9" height="9" x=".5" y=".5" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+    </button>
+    <button class="tb-ctrl close" onclick="EA.close()" title="Close">
+      <svg viewBox="0 0 10 10"><line x1="0" y1="0" x2="10" y2="10" stroke="currentColor" stroke-width="1.2"/><line x1="10" y1="0" x2="0" y2="10" stroke="currentColor" stroke-width="1.2"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- SHELL -->
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-logo">🌑</div>
+    <div class="sb-sep"></div>
+
+    <button class="sb-btn on" id="btn-studio" onclick="showTab('studio')" title="">
+      <span>📺</span><span class="tooltip">Studio</span>
+    </button>
+    <button class="sb-btn" id="btn-settings" onclick="showTab('settings')" title="">
+      <span>⚙️</span><span class="tooltip">Settings</span>
+    </button>
+    <button class="sb-btn" id="btn-about" onclick="showTab('about')" title="">
+      <span>ℹ️</span><span class="tooltip">About</span>
+    </button>
+
+    <div class="sb-spacer"></div>
+    <div class="sb-version" id="versionTag">v1.0</div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- STUDIO (webview) -->
+    <webview id="studioView"
+      allowpopups
+      partition="persist:eclipse"
+      webpreferences="contextIsolation=no, javascript=yes"
+      useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+      style="flex:1;border:none;display:flex"></webview>
+
+    <!-- SETTINGS PANEL -->
+    <div class="inner-panel" id="panel-settings">
+      <div class="panel-title">Settings</div>
+      <div class="panel-sub">Customize your EclipseLiveCam desktop experience</div>
+
+      <!-- Display -->
+      <div class="settings-group">
+        <div class="sg-header">Display</div>
+        <div class="setting-row">
+          <div class="sr-left">
+            <div class="sr-label">Zoom Level</div>
+            <div class="sr-desc">Scale the app content</div>
+          </div>
+          <div class="range-wrap">
+            <input type="range" min="70" max="130" step="5" id="zoomRange" oninput="previewZoom(this.value)"/>
+            <span class="range-val" id="zoomVal">100%</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-left">
+            <div class="sr-label">Start Maximized</div>
+            <div class="sr-desc">Launch in full window</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="startMax"/>
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Window -->
+      <div class="settings-group">
+        <div class="sg-header">Window</div>
+        <div class="setting-row">
+          <div class="sr-left">
+            <div class="sr-label">Always on Top</div>
+            <div class="sr-desc">Keep app above other windows</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="alwaysOnTop" onchange="toggleAlwaysOnTop(this.checked)"/>
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Studio -->
+      <div class="settings-group">
+        <div class="sg-header">Studio</div>
+        <div class="setting-row">
+          <div class="sr-left">
+            <div class="sr-label">Reload Studio</div>
+            <div class="sr-desc">Refresh the studio page</div>
+          </div>
+          <button class="action-btn primary" onclick="reloadStudio()">↺ Reload</button>
+        </div>
+        <div class="setting-row">
+          <div class="sr-left">
+            <div class="sr-label">Open in Browser</div>
+            <div class="sr-desc">Launch studio in your browser</div>
+          </div>
+          <button class="action-btn" onclick="openInBrowser()">🌐 Open</button>
+        </div>
+      </div>
+
+      <!-- Data -->
+      <div class="settings-group">
+        <div class="sg-header">Data & Cache</div>
+        <div class="setting-row">
+          <div class="sr-left">
+            <div class="sr-label">Clear Cache</div>
+            <div class="sr-desc">Free up disk space</div>
+          </div>
+          <button class="action-btn danger" onclick="clearCache()">🗑 Clear</button>
+        </div>
+      </div>
+
+      <div style="text-align:right;margin-top:1.2rem">
+        <button class="action-btn primary" onclick="saveSettingsUI()" style="padding:.55rem 1.4rem;font-size:.86rem">💾 Save Settings</button>
+      </div>
+    </div>
+
+    <!-- ABOUT PANEL -->
+    <div class="inner-panel" id="panel-about">
+      <div class="about-wrap">
+        <div class="about-logo">🌑</div>
+        <div class="about-name">EclipseLiveCam</div>
+        <div class="about-version" id="aboutVersion">Version 1.0.0</div>
+        <div class="about-desc">Live AI camera transformation studio. Transform yourself in real time, restyle videos, and reimagine photos — powered by cutting-edge AI.</div>
+        <div class="about-links">
+          <div class="about-link" onclick="openExt('https://eclipselivecam.online')">
+            <span class="al-left">🌐 Visit Website</span><span class="al-arrow">↗</span>
+          </div>
+          <div class="about-link" onclick="openExt('https://eclipselivecam.online/studio.html')">
+            <span class="al-left">📺 Open Studio in Browser</span><span class="al-arrow">↗</span>
+          </div>
+          <div class="about-link" onclick="openExt('mailto:support@eclipselivecam.online')">
+            <span class="al-left">📧 Contact Support</span><span class="al-arrow">↗</span>
+          </div>
+        </div>
+        <div class="about-badges">
+          <span class="badge built">Built with Electron</span>
+          <span class="badge version" id="aboutBadgeVer">v1.0.0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="statusbar">
+      <div class="sb-item"><div class="sb-dot green"></div>Connected</div>
+      <div class="sb-item"><div class="sb-dot purple"></div>EclipseLiveCam Studio</div>
+      <div class="sb-item" style="margin-left:auto" id="sbTime"></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /shell -->
+
+<div class="toast" id="toast"></div>
+<div id="updateBanner" style="display:none;position:fixed;bottom:2rem;right:2rem;background:#1a1a22;border:1px solid rgba(124,58,237,.4);border-radius:12px;padding:.75rem 1.2rem;display:none;align-items:center;gap:.8rem;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.5)">
+  <span style="font-size:.82rem;color:#a78bfa">⬆ Update ready — installs on restart</span>
+  <button onclick="EA.installUpdate()" style="padding:.35rem .8rem;border-radius:7px;border:none;background:#7c3aed;color:#fff;font-size:.78rem;font-weight:700;cursor:pointer">Restart Now</button>
+  <button onclick="document.getElementById('updateBanner').style.display='none'" style="background:none;border:none;color:rgba(232,232,240,.4);cursor:pointer;font-size:1rem;line-height:1">✕</button>
+</div>
+
+<script>
+const EA = window.eclipseApp;
+let S = {};
+let appUrl = '';
+
+async function init() {
+  const [settings, ver, url] = await Promise.all([EA.getSettings(), EA.getVersion(), EA.getAppUrl()]);
+  S = settings || {};
+  appUrl = url;
+
+  document.getElementById('zoomRange').value     = S.zoom || 100;
+  document.getElementById('zoomVal').textContent  = (S.zoom || 100) + '%';
+  document.getElementById('startMax').checked     = !!S.startMaximized;
+  document.getElementById('alwaysOnTop').checked  = !!S.alwaysOnTop;
+  document.getElementById('versionTag').textContent   = 'v' + ver;
+  document.getElementById('aboutVersion').textContent = 'Version ' + ver;
+  document.getElementById('aboutBadgeVer').textContent = 'v' + ver;
+
+  const wv = document.getElementById('studioView');
+  wv.src = appUrl;
+  wv.addEventListener('did-finish-load', () => {
+    if (S.zoom && S.zoom !== 100) wv.setZoomFactor(S.zoom / 100);
+    // Enumerate cameras after page loads
+    wv.executeJavaScript(`
+      (async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          stream.getTracks().forEach(t => t.stop());
+        } catch(e) {}
+        try {
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          const cams = devs.filter(d => d.kind === 'videoinput');
+          const sel = document.getElementById('camSel');
+          if (sel && cams.length > 0) {
+            sel.innerHTML = cams.map((c, i) =>
+              '<option value="' + c.deviceId + '">' + (c.label || 'Camera ' + (i+1)) + '</option>'
+            ).join('');
+          }
+        } catch(e) {}
+      })();
+    `).catch(() => {});
+  });
+
+  EA.onMaximized(val => updateMaxIcon(val));
+  EA.onUpdateReady(() => showUpdateBanner());
+
+  setInterval(() => {
+    document.getElementById('sbTime').textContent = new Date().toLocaleTimeString();
+  }, 1000);
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function showTab(tab) {
+  document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('on'));
+  document.getElementById('btn-' + tab).classList.add('on');
+  const wv = document.getElementById('studioView');
+  wv.style.display = tab === 'studio' ? 'flex' : 'none';
+  document.querySelectorAll('.inner-panel').forEach(p => p.classList.remove('show'));
+  if (tab !== 'studio') document.getElementById('panel-' + tab).classList.add('show');
+}
+
+// ── WINDOW CONTROLS ───────────────────────────────────────────────────────────
+async function toggleMax() {
+  await EA.maximize();
+  const mx = await EA.isMaximized();
+  updateMaxIcon(mx);
+}
+function updateMaxIcon(maximized) {
+  const icon = document.getElementById('maxIcon');
+  icon.innerHTML = maximized
+    ? `<path d="M0 3h7v7H0zM3 0h7v7" fill="none" stroke="currentColor" stroke-width="1"/>`
+    : `<rect width="9" height="9" x=".5" y=".5" fill="none" stroke="currentColor" stroke-width="1"/>`;
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+function previewZoom(val) {
+  document.getElementById('zoomVal').textContent = val + '%';
+  document.getElementById('studioView').setZoomFactor(val / 100);
+}
+function toggleAlwaysOnTop(val) { EA.toggleAlwaysOnTop(val); }
+async function saveSettingsUI() {
+  const ns = {
+    zoom:           parseInt(document.getElementById('zoomRange').value),
+    startMaximized: document.getElementById('startMax').checked,
+    alwaysOnTop:    document.getElementById('alwaysOnTop').checked,
+  };
+  await EA.saveSettings(ns);
+  S = ns;
+  showToast('✓ Settings saved');
+}
+async function clearCache() { await EA.clearCache(); showToast('✓ Cache cleared'); }
+function reloadStudio() { document.getElementById('studioView').reload(); showTab('studio'); showToast('↺ Studio reloaded'); }
+function openInBrowser() { EA.openExternal(appUrl); }
+function openExt(url) { EA.openExternal(url); }
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+function showUpdateBanner() {
+  document.getElementById('updateBanner').style.display = 'flex';
+}
+
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (ok ? ' ok' : '');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+init();
+</script>
+</body>
+</html>
